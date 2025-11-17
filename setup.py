@@ -14,7 +14,6 @@ setup(
     name="evalys-burner-swarm",
     version="0.1.0",
     author="Evalys Team",
-    author_email="team@evalys.io",
     description="Burner Swarm Fabric for Evalys - Disposable wallet management",
     long_description=long_description,
     long_description_content_type="text/markdown",
