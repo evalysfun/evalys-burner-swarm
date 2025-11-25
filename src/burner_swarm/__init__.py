@@ -9,6 +9,8 @@ from .wallet_generator import WalletGenerator
 from .pool_manager import PoolManager, BurnerWallet, WalletStatus
 from .funding_manager import FundingManager
 from .rotation_strategy import RotationStrategy
+from .policy import SwarmPolicy, RiskLevel
+from .scheduler import SwarmScheduler
 from .burner_swarm_fabric import BurnerSwarmFabric
 
 __all__ = [
@@ -18,6 +20,9 @@ __all__ = [
     "WalletStatus",
     "FundingManager",
     "RotationStrategy",
+    "SwarmPolicy",
+    "RiskLevel",
+    "SwarmScheduler",
     "BurnerSwarmFabric",
 ]
 

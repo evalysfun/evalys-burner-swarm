@@ -145,11 +145,18 @@ curl http://localhost:8001/api/v1/burner/pool-stats
 
 ```
 Burner Swarm Fabric
+├── Swarm Manager         # Lifecycle orchestrator
+├── Policy Engine         # Rotation & funding rules
+├── Scheduler             # Timing jitter / cadence
 ├── Wallet Generator      # Keypair generation
-├── Pool Manager          # Pool management
-├── Funding Manager       # JIT funding
+├── Pool Manager          # Pool management (active, reserve, retired)
+├── Funding Manager       # JIT funding with linkability mitigation
 └── Rotation Strategy     # Rotation logic
 ```
+
+**Lifecycle States**: `NEW → FUNDED → ACTIVE → COOLING → RETIRED → DESTROYED`
+
+See [Swarm Spec](docs/swarm-spec.md) for detailed lifecycle and state transitions.
 
 ## 🔧 Configuration
 
@@ -171,12 +178,42 @@ export API_PORT=8001
 # Run tests
 pytest
 
+# Run invariant tests
+pytest tests/test_invariants.py
+
 # With coverage
 pytest --cov=src --cov-report=html
-
-# Run specific test
-pytest tests/test_pool_manager.py
 ```
+
+### Invariant Tests
+
+The swarm includes tests that prove invariants always hold:
+
+- **Lifecycle Correctness**: Burner cannot jump states or revert
+- **Retirement Irreversibility**: Retired burner never becomes active again
+- **Rotation Monotonicity**: Higher risk → more frequent rotation
+- **Funding Diversity**: Consecutive burners have different funding patterns
+- **No Secret Leakage**: Private keys never logged or serialized
+
+See `tests/test_invariants.py` for details.
+
+### Demo
+
+Run the interactive demo:
+
+```bash
+python examples/demo-spawn.py
+```
+
+This demonstrates:
+- Swarm configuration
+- Wallet generation
+- JIT funding with linkability mitigation
+- Wallet activation
+- Rotation scheduling
+- Pool management
+
+Perfect for screen recordings and promotional videos.
 
 ## 📦 Project Structure
 
@@ -184,26 +221,66 @@ pytest tests/test_pool_manager.py
 evalys-burner-swarm/
 ├── src/
 │   ├── burner_swarm/     # Core burner swarm logic
-│   │   ├── wallet_generator.py
-│   │   ├── pool_manager.py
-│   │   ├── funding_manager.py
-│   │   ├── rotation_strategy.py
+│   │   ├── swarm_manager.py      # Lifecycle orchestrator
+│   │   ├── policy.py             # Rotation & funding rules
+│   │   ├── scheduler.py           # Timing jitter / cadence
+│   │   ├── wallet_generator.py   # Keypair generation
+│   │   ├── pool_manager.py       # Pool management
+│   │   ├── funding_manager.py    # JIT funding
+│   │   ├── rotation_strategy.py # Rotation logic
 │   │   └── burner_swarm_fabric.py
 │   ├── api/              # REST API
 │   ├── config/           # Configuration
 │   └── utils/            # Utilities
-├── tests/                # Tests
+├── docs/
+│   ├── swarm-spec.md     # Swarm specification
+│   └── linkability.md    # Linkability model
+├── examples/
+│   └── demo-spawn.py     # Runnable demo
+├── tests/
+│   ├── test_invariants.py # Invariant tests
+│   └── ...
+├── CHANGELOG.md
+├── ROADMAP.md
 ├── requirements.txt
 ├── setup.py
 └── README.md
 ```
 
+## 📝 Implementation Status
+
+### Implemented (v0.1)
+
+- ✅ **Lifecycle Management**: Full state machine (NEW → FUNDED → ACTIVE → RETIRED → DESTROYED)
+- ✅ **Policy Engine**: Risk-based rotation and funding policies
+- ✅ **Scheduler**: Timing jitter and staggered operations
+- ✅ **Pool Management**: Active, reserve, and retired pools
+- ✅ **JIT Funding**: Just-in-time funding with linkability mitigation
+- ✅ **Rotation Strategy**: Usage and time-based rotation
+- ✅ **Linkability Mitigation**: Timing jitter, amount bucketing, staggered funding
+- ✅ **Invariant Tests**: Lifecycle, rotation, funding diversity, secret leakage
+- ✅ **REST API**: Full API for integration
+- ✅ **Python Library**: Standalone library interface
+- ✅ **Documentation**: Swarm spec and linkability model
+
+### Planned
+
+- ⏳ **Multi-Hop Funding Relays**: Relay network for funding paths
+- ⏳ **Adaptive Policy**: Policy tied to curve intelligence risk scores
+- ⏳ **Arcium-Gated Funding**: Confidential funding via Arcium (if applicable)
+- ⏳ **Advanced Linkability**: ML-based correlation detection and mitigation
+- ⏳ **IP Diversity**: VPN/proxy rotation for additional privacy
+- ⏳ **Cross-Wallet Analysis**: Detect and break correlation patterns
+
 ## 🔐 Security
 
-- Private keys are encrypted in memory
-- Keys are cleared when wallets are retired
-- No persistent storage of private keys
-- Secure key derivation for encryption
+- **Key Storage**: Private keys encrypted in memory, never persisted
+- **Key Zeroization**: Keys securely zeroized on retirement
+- **No Logging**: Private keys never logged or serialized
+- **Funding Diversity**: Consecutive burners have different funding patterns
+- **Rotation Timing**: Randomized rotation timing to reduce correlation
+
+See [Swarm Spec](docs/swarm-spec.md) for security considerations.
 
 ## 🤝 Contributing
 
@@ -226,12 +303,59 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [evalys-curve-intelligence](https://github.com/evalysfun/evalys-curve-intelligence) - Curve analysis
 - [evalys-execution-engine](https://github.com/evalysfun/evalys-execution-engine) - Transaction execution
 
+## 📚 Documentation
+
+- **[Swarm Spec](docs/swarm-spec.md)**: Detailed specification of lifecycle, states, policies, and invariants
+- **[Linkability Model](docs/linkability.md)**: Linkability risks and mitigation strategies
+- **[Changelog](CHANGELOG.md)**: Version history
+- **[Roadmap](ROADMAP.md)**: Planned features and improvements
+
+## 📊 Measurable Behavior
+
+Instead of vague claims, here's what the swarm actually does:
+
+**Lifecycle States**:
+- `NEW`: Wallet generated, not funded
+- `FUNDED`: Wallet funded, ready for use
+- `ACTIVE`: Wallet in use
+- `COOLING`: Wallet used, waiting for retirement
+- `RETIRED`: Wallet retired, keys marked for cleanup
+- `DESTROYED`: Keys zeroized, wallet removed
+
+**Rotation Policy**:
+- Usage-based: Rotate after `max_uses` transactions
+- Time-based: Rotate after `max_age_hours` hours
+- Risk-based: Higher risk → lower `max_uses` and `max_age_hours` (more frequent rotation)
+
+**Linkability Mitigation**:
+- Timing Jitter: Random delays (0-30s) for funding
+- Amount Bucketing: [0.1, 0.2, 0.5, 1.0] SOL with ±5% noise
+- Staggered Funding: 5-60s delays between wallets
+- Rotation Jitter: ±2 hours randomization
+
+**Invariants**:
+- Lifecycle correctness: No invalid state transitions
+- Retirement irreversibility: Retired never becomes active
+- Rotation monotonicity: Higher risk never reduces rotation frequency
+- Funding diversity: Consecutive burners have different patterns
+- No secret leakage: Private keys never logged or serialized
+
+See [Swarm Spec](docs/swarm-spec.md) and [Linkability Model](docs/linkability.md) for detailed specifications.
+
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/evalysfun/evalys-burner-swarm/issues)
-- **Discord**: [Coming Soon]
+- **Documentation**: See `docs/` directory
+- **Related Projects**: See below
+
+## 🔗 Related Projects
+
+- [evalys-privacy-engine](https://github.com/evalysfun/evalys-privacy-engine) - Privacy mode orchestration
+- [evalys-launchpad-adapters](https://github.com/evalysfun/evalys-launchpad-adapters) - Launchpad integrations
+- [evalys-curve-intelligence](https://github.com/evalysfun/evalys-curve-intelligence) - Curve analysis
+- [evalys-execution-engine](https://github.com/evalysfun/evalys-execution-engine) - Transaction execution
 
 ---
 
-**Evalys Burner Swarm** - Disposable wallets for privacy-preserving transactions 🔥
+**Evalys Burner Swarm** - Disposable wallets with formal lifecycle and linkability mitigation 🔥
 
